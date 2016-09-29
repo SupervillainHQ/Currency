@@ -4,11 +4,12 @@
  */
 
 namespace supervillainhq\currency {
-	class Currency{
+	final class Currency{
 		private static $source = 'http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml';
+		private static $rates;
 
-		protected $code; // ISO 4217 Currency Code
-		private $rates;
+		private $code; // ISO 4217 Currency Code
+		private $rate;
 
 		/**
 		 * @return mixed
@@ -21,40 +22,40 @@ namespace supervillainhq\currency {
 			$this->code = $code;
 		}
 
-
-		public function rates(){
-			return $this->rates;
+		public function getRate(){
+			return $this->rate;
 		}
 
-		public function getRate($index){
+		private function setRate($rate){
+			$this->rate = $rate;
 		}
 
-		public function hasRate(array $item){
-		}
-
-		public function addRate(array $item){
-		}
-
-		public function removeRate(array $item){
-		}
-
-		public function removeRateAt($index){
-		}
-
-		public function resetRates(array $array = []){
-			$this->rates = $array;
+		/**
+		 * Currency constructor.
+		 * @param $code
+		 * @param float $rate
+		 */
+		final private function __construct($code, $rate = 1.0) {
+			$this->setCode($code);
+			$this->setRate($rate);
 		}
 
 
-		static function get($code){}
+		static function get($code, $rate = null){
+			if(is_null($rate) && is_array(self::$rates)){
+				$rate = self::$rates[$code];
+			}
+			$instance = new Currency($code, $rate);
+			return $instance;
+		}
 
 		static function loadRatesFrom($source = null){
 			if(is_null($source)){
 				$source = self::$source;
 			}
 			$data = self::fetch($source);
-			$rates = self::parseEcbXml($data);
-			return $rates;
+			self::$rates = self::parseEcbXml($data);
+			return self::$rates;
 		}
 
 		static private function fetch($uri){
@@ -76,9 +77,17 @@ namespace supervillainhq\currency {
 			return $output;
 		}
 
-		static private function parseEcbXml($data){
+		static function parseEcbXml($data){
 			$doc = new \DOMDocument();
 			$doc->loadXML($data);
+			$cubes = $doc->getElementsByTagName('Cube');
+			$rates = [];
+			foreach ($cubes as $cube){
+				if($cube->hasAttribute('currency') && $cube->hasAttribute('rate')){
+					$rates[$cube->getAttribute('currency')] = floatval($cube->getAttribute('rate'));
+				}
+			}
+			return $rates;
 		}
 
 	}
